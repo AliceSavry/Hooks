@@ -109,7 +109,7 @@
     <header class="py-8 px-4 text-center relative z-10">
         <div class="inline-flex items-center justify-center p-2 mb-4 bg-slate-800/50 rounded-full border border-slate-700/50 backdrop-blur-sm">
             <span class="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
-            <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Moteur IA v3.7 GitHub Ready</span>
+            <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Moteur IA v3.8 Multi-Provider</span>
         </div>
         <h1 class="text-5xl md:text-6xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400">
             ViralHook Generator
@@ -143,7 +143,7 @@
             <div class="mt-3 flex justify-center gap-4 text-sm text-slate-500">
                 <span class="flex items-center"><i data-lucide="layout-template" class="w-3 h-3 mr-1 text-purple-500"></i> Layout Colonnes</span>
                 <span class="flex items-center"><i data-lucide="repeat" class="w-3 h-3 mr-1 text-green-500"></i> Loop Infini</span>
-                <span class="flex items-center"><i data-lucide="clock" class="w-3 h-3 mr-1 text-pink-500"></i> Max 60s</span>
+                <span class="flex items-center"><i data-lucide="shield-check" class="w-3 h-3 mr-1 text-pink-500"></i> Backup Mistral</span>
             </div>
         </div>
 
@@ -153,7 +153,7 @@
                 <div class="absolute top-0 left-0 w-full h-full border-4 border-purple-500/30 rounded-full"></div>
                 <div class="absolute top-0 left-0 w-full h-full border-4 border-t-purple-500 rounded-full animate-spin"></div>
             </div>
-            <p class="mt-4 text-purple-300 font-medium animate-pulse">L'IA invente les meilleurs hooks pour ce sujet...</p>
+            <p class="mt-4 text-purple-300 font-medium animate-pulse">Analyse IA en cours (Gemini/Mistral)...</p>
         </div>
 
         <!-- Results Section (Hidden by default) -->
@@ -276,14 +276,15 @@
     </div>
 
     <footer class="py-8 text-center text-slate-600 text-sm border-t border-slate-900">
-        <p>&copy; 2024 ViralHook SaaS. Powered by Gemini Pro.</p>
+        <p>&copy; 2024 ViralHook SaaS. Powered by Gemini Pro & Mistral AI.</p>
     </footer>
 
     <!-- LOGIC SCRIPT -->
     <script>
         // --- CONFIGURATION ---
-        // 🔴🔴🔴 COLLEZ VOTRE CLÉ API GEMINI ICI ENTRE LES GUILLEMETS 🔴🔴🔴
+        // 🔴🔴🔴 COLLEZ VOS CLÉS API ICI 🔴🔴🔴
         const GEMINI_API_KEY = "AIzaSyDtpYcmRpQ9dvqH4q8V3JgjSCijZYCGAvg"; 
+        const MISTRAL_API_KEY = "GRjzNi0YM7MJi6Krpd5ITVr8VDsIG8sF"; // Mettez votre clé Mistral ici (ex: "votre_cle_mistral")
         // --------------------------------------------------------------------
 
         // Global variables to store hooks and topic
@@ -298,7 +299,7 @@
         });
 
 
-        // --- FALLBACK DATA ENGINE (Used if API Fails) ---
+        // --- FALLBACK DATA ENGINE (Used if ALL APIs Fail) ---
         const hookTemplates = [
             { text: "Ce que personne ne vous dit sur {T}.", cat: "Curiosité", baseScore: 92, why: "Crée un 'Information Gap' irrésistible." },
             { text: "Arrêtez de faire ça si vous voulez réussir dans {T}.", cat: "Curiosité", baseScore: 95, why: "La négation stop le scroll immédiatement." },
@@ -410,7 +411,7 @@
             }
         }
 
-        // --- NEW: AI HOOK FETCHING ---
+        // --- AI HOOK FETCHING WITH FAILOVER ---
         async function fetchHooksFromAI(topic) {
              const prompt = `
             Tu es un expert en marketing viral pour TikTok et Shorts.
@@ -435,35 +436,286 @@
             ]
             `;
 
-            // Using Gemini 2.5 Flash Preview
+            try {
+                // 1. Try Gemini
+                return await callGemini(prompt, true);
+            } catch (error) {
+                console.warn("Gemini échoué, tentative Mistral...", error);
+                
+                // 2. Try Mistral if Gemini fails
+                if (MISTRAL_API_KEY && MISTRAL_API_KEY.length > 5) {
+                    return await callMistral(prompt, true);
+                }
+                
+                // 3. Throw to trigger templates fallback
+                throw error;
+            }
+        }
+
+        // --- SCRIPT GENERATION WITH FAILOVER ---
+        async function generateScriptWithAI(hook, topic) {
+            const prompt = `
+            Agis comme un scénariste expert pour TikTok/Shorts/Reels.
+            Le sujet est : "${topic}".
+            Le Hook sélectionné (à utiliser tel quel) est : "${hook}".
+            
+            Objectif : Créer un script vidéo VIRAL de 45-59 secondes maximum.
+            Cible : Ados de 8 à 15 ans.
+            Ton : Dynamique, rapide, tutoiement, argot léger, emojis.
+
+            Règle Absolue 1 : Le Hook Audio (0-5s) DOIT être exactement la phrase : "${hook}".
+            Règle Absolue 2 : La durée totale DOIT être inférieure à 60 secondes. Vise 58-59s.
+            Règle du Loop Infini : La toute dernière phrase doit boucler sur le début.
+
+            Consigne de Formatage (TRES IMPORTANT) :
+            Génère le script EXCLUSIVEMENT au format HTML (pas de markdown, pas de balises code, juste le HTML pur).
+            Utilise ce template HTML pour le style (Grid Layout) et remplace les placeholders en majuscules :
+
+            <div class="space-y-8 font-sans">
+                <!-- Header -->
+                <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
+                    <h2 class="text-2xl font-bold text-white mb-2">TITRE_CATCHY_ICI</h2>
+                    <div class="flex gap-2 text-sm text-purple-400 font-mono">#HASHTAGS_ICI</div>
+                </div>
+
+                <!-- Timeline Visual -->
+                <div class="mb-8">
+                    <h3 class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4 text-center">Anatomie du Script</h3>
+                    <div class="flex items-center justify-between relative px-4">
+                        <div class="absolute top-1/2 left-4 right-4 h-1 bg-slate-800 -z-10 rounded"></div>
+                        
+                        <div class="flex flex-col items-center bg-slate-900 px-2">
+                            <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white mb-2 ring-4 ring-slate-900 shadow-lg shadow-purple-500/30"><i data-lucide="zap" class="w-4 h-4"></i></div>
+                            <span class="text-[10px] text-purple-400 font-bold">HOOK</span>
+                        </div>
+                        <div class="flex flex-col items-center bg-slate-900 px-2">
+                            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white mb-2 ring-4 ring-slate-900 shadow-lg shadow-blue-500/30"><i data-lucide="mic" class="w-4 h-4"></i></div>
+                            <span class="text-[10px] text-blue-400 font-bold">INTRO</span>
+                        </div>
+                        <div class="flex flex-col items-center bg-slate-900 px-2">
+                            <div class="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-white mb-2 ring-4 ring-slate-900 shadow-lg shadow-yellow-500/30"><i data-lucide="trending-up" class="w-4 h-4"></i></div>
+                            <span class="text-[10px] text-yellow-400 font-bold">BUILD-UP</span>
+                        </div>
+                        <div class="flex flex-col items-center bg-slate-900 px-2">
+                            <div class="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white mb-2 ring-4 ring-slate-900 shadow-lg shadow-green-500/30"><i data-lucide="check-circle" class="w-4 h-4"></i></div>
+                            <span class="text-[10px] text-green-400 font-bold">SOLUTION</span>
+                        </div>
+                        <div class="flex flex-col items-center bg-slate-900 px-2">
+                            <div class="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white mb-2 ring-4 ring-slate-900 shadow-lg shadow-red-500/30"><i data-lucide="repeat" class="w-4 h-4"></i></div>
+                            <span class="text-[10px] text-red-400 font-bold">LOOP</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 0-5s -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-slate-800 pb-6">
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 text-purple-400 font-mono text-sm font-bold">
+                            <i data-lucide="clock" class="w-4 h-4"></i> 0-5s : Le Hook
+                        </div>
+                        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Visuel 🎥</span>
+                            <p class="text-slate-300 text-sm leading-relaxed">DESCRIPTION_VISUELLE_HOOK</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-end">
+                         <div class="bg-slate-800 p-4 rounded-xl border-l-4 border-purple-500 relative overflow-hidden">
+                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Audio 🔊</span>
+                            <p class="text-white font-medium text-lg leading-relaxed">"${hook}"</p>
+                            <p class="text-pink-500 text-sm font-bold mt-2 italic flex items-center gap-2">
+                                🎵 SFX_DESCRIPTION
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 5-20s (Problème) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-slate-800 pb-6">
+                    <div class="space-y-2">
+                         <div class="flex items-center gap-2 text-purple-400 font-mono text-sm font-bold">
+                            <i data-lucide="clock" class="w-4 h-4"></i> 5-20s : L'Intro/Problème
+                        </div>
+                        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                             <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Visuel 🎥</span>
+                            <p class="text-slate-300 text-sm leading-relaxed">DESCRIPTION_VISUELLE_PROBLEME</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-end">
+                         <div class="bg-slate-800 p-4 rounded-xl border-l-4 border-blue-500">
+                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Audio 🔊</span>
+                            <p class="text-white font-medium text-lg leading-relaxed">TEXTE_AUDIO_PROBLEME</p>
+                             <p class="text-yellow-400 text-sm font-bold mt-2 italic flex items-center gap-2">
+                                🎵 SFX_DESCRIPTION
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                 <!-- Section 20-45s (Solution) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-slate-800 pb-6">
+                    <div class="space-y-2">
+                         <div class="flex items-center gap-2 text-purple-400 font-mono text-sm font-bold">
+                            <i data-lucide="clock" class="w-4 h-4"></i> 20-45s : La Solution (Build-Up)
+                        </div>
+                        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                             <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Visuel 🎥</span>
+                            <p class="text-slate-300 text-sm leading-relaxed">DESCRIPTION_VISUELLE_SOLUTION</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-end">
+                         <div class="bg-slate-800 p-4 rounded-xl border-l-4 border-green-500">
+                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Audio 🔊</span>
+                            <p class="text-white font-medium text-lg leading-relaxed">TEXTE_AUDIO_SOLUTION</p>
+                             <p class="text-pink-500 text-sm font-bold mt-2 italic flex items-center gap-2">
+                                🎵 SFX_DESCRIPTION
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 45-55s (CTA) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-slate-800 pb-6">
+                    <div class="space-y-2">
+                         <div class="flex items-center gap-2 text-purple-400 font-mono text-sm font-bold">
+                            <i data-lucide="clock" class="w-4 h-4"></i> 45-55s : CTA (Point Culminant)
+                        </div>
+                        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                             <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Visuel 🎥</span>
+                            <p class="text-slate-300 text-sm leading-relaxed">DESCRIPTION_VISUELLE_CTA</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-end">
+                         <div class="bg-slate-800 p-4 rounded-xl border-l-4 border-pink-500">
+                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Audio 🔊</span>
+                            <p class="text-white font-medium text-lg leading-relaxed">TEXTE_AUDIO_CTA</p>
+                        </div>
+                    </div>
+                </div>
+
+                 <!-- Section 55-59s (Loop) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
+                    <div class="space-y-2">
+                         <div class="flex items-center gap-2 text-purple-400 font-mono text-sm font-bold">
+                            <i data-lucide="clock" class="w-4 h-4"></i> 55-59s : Le Loop (Appel à Action)
+                        </div>
+                        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                             <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Visuel 🎥</span>
+                            <p class="text-slate-300 text-sm leading-relaxed">DESCRIPTION_VISUELLE_LOOP</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-end">
+                         <div class="bg-slate-800 p-4 rounded-xl border-l-4 border-purple-500">
+                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Audio 🔊</span>
+                            <p class="text-white font-medium text-lg leading-relaxed">TEXTE_AUDIO_LOOP (phrase de transition vers le début)</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            `;
+
+            try {
+                // 1. Try Gemini
+                return await callGemini(prompt, false);
+            } catch (error) {
+                console.warn("Gemini échoué, tentative Mistral...", error);
+                // 2. Try Mistral
+                if (MISTRAL_API_KEY && MISTRAL_API_KEY.length > 5) {
+                    return await callMistral(prompt, false);
+                }
+                throw error;
+            }
+        }
+
+        // --- GEMINI API CALLER ---
+        async function callGemini(prompt, isJson) {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`;
             
+            const body = {
+                contents: [{ parts: [{ text: prompt }] }]
+            };
+            
+            if (isJson) {
+                body.generationConfig = { responseMimeType: "application/json" };
+            }
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                         responseMimeType: "application/json"
-                    }
-                })
+                body: JSON.stringify(body)
             });
 
-            if (!response.ok) throw new Error('API Error');
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error?.message || 'Erreur API Gemini');
+            }
 
             const data = await response.json();
-            const textResponse = data.candidates[0].content.parts[0].text;
+            let text = data.candidates[0].content.parts[0].text;
+
+            if (isJson) {
+                const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                const hooks = JSON.parse(cleanJson);
+                // Normalize result to include Tier immediately if possible, or do it in render
+                return hooks.map(h => ({
+                    ...h,
+                    rawText: h.text,
+                    tier: getTier(h.score)
+                }));
+            } else {
+                // HTML Cleaning
+                return text.replace(/```html/g, '').replace(/```/g, '').trim();
+            }
+        }
+
+        // --- MISTRAL API CALLER (NEW) ---
+        async function callMistral(prompt, isJson) {
+            const url = "https://api.mistral.ai/v1/chat/completions";
             
-            // Parse JSON (handling potential markdown fences)
-            const cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-            const hooks = JSON.parse(cleanJson);
-            
-            // Add 'tier' property
-            return hooks.map(h => ({
-                ...h,
-                rawText: h.text, // text is already formatted by AI
-                tier: getTier(h.score)
-            }));
+            const body = {
+                model: "mistral-small-latest",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.7
+            };
+
+            if (isJson) {
+                body.response_format = { type: "json_object" };
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${MISTRAL_API_KEY}`
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || 'Erreur API Mistral');
+            }
+
+            const data = await response.json();
+            let content = data.choices[0].message.content;
+
+            if (isJson) {
+                const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
+                const hooks = JSON.parse(cleanJson);
+                // Mistral output might be wrapped in { hooks: [...] } depending on strict json mode behaviour or just array
+                // The prompt asks for an array. Let's assume it returns array or handle object wrapper.
+                const hooksArray = Array.isArray(hooks) ? hooks : (hooks.hooks || Object.values(hooks)[0]);
+                
+                if (!Array.isArray(hooksArray)) throw new Error("Format JSON Mistral invalide");
+
+                return hooksArray.map(h => ({
+                    ...h,
+                    rawText: h.text,
+                    tier: getTier(h.score)
+                }));
+            } else {
+                return content.replace(/```html/g, '').replace(/```/g, '').trim();
+            }
         }
 
         // --- FALLBACK LOGIC ---
@@ -612,7 +864,7 @@
             loader.classList.remove('hidden');
 
             try {
-                const script = await generateScriptWithGemini(hook, topic);
+                const script = await generateScriptWithAI(hook, topic);
                 currentScriptText = script;
                 // Direct HTML injection (No Markdown parsing for the script)
                 content.innerHTML = script;
@@ -636,209 +888,6 @@
             setTimeout(() => {
                 modal.classList.add('hidden');
             }, 300);
-        }
-
-        async function generateScriptWithGemini(hook, topic) {
-            const prompt = `
-            Agis comme un scénariste expert pour TikTok/Shorts/Reels.
-            Le sujet est : "${topic}".
-            Le Hook sélectionné (à utiliser tel quel) est : "${hook}".
-            
-            Objectif : Créer un script vidéo VIRAL de 45-59 secondes maximum.
-            Cible : Ados de 8 à 15 ans.
-            Ton : Dynamique, rapide, tutoiement, argot léger, emojis.
-
-            Règle Absolue 1 : Le Hook Audio (0-5s) DOIT être exactement la phrase : "${hook}".
-            Règle Absolue 2 : La durée totale DOIT être inférieure à 60 secondes. Vise 58-59s.
-            Règle du Loop Infini : La toute dernière phrase doit boucler sur le début.
-
-            Consigne de Formatage (TRES IMPORTANT) :
-            Génère le script EXCLUSIVEMENT au format HTML (pas de markdown, pas de balises code, juste le HTML pur).
-            Utilise ce template HTML pour le style (Grid Layout) et remplace les placeholders en majuscules :
-
-            <div class="space-y-8 font-sans">
-                <!-- Header -->
-                <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
-                    <h2 class="text-2xl font-bold text-white mb-2">TITRE_CATCHY_ICI</h2>
-                    <div class="flex gap-2 text-sm text-purple-400 font-mono">#HASHTAGS_ICI</div>
-                </div>
-
-                <!-- Timeline Visual -->
-                <div class="mb-8">
-                    <h3 class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4 text-center">Anatomie du Script</h3>
-                    <div class="flex items-center justify-between relative px-4">
-                        <div class="absolute top-1/2 left-4 right-4 h-1 bg-slate-800 -z-10 rounded"></div>
-                        
-                        <!-- Step 1 -->
-                        <div class="flex flex-col items-center bg-slate-900 px-2">
-                            <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white mb-2 ring-4 ring-slate-900 shadow-lg shadow-purple-500/30">
-                                <i data-lucide="zap" class="w-4 h-4"></i>
-                            </div>
-                            <span class="text-[10px] text-purple-400 font-bold">HOOK</span>
-                        </div>
-
-                        <!-- Step 2 -->
-                        <div class="flex flex-col items-center bg-slate-900 px-2">
-                            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white mb-2 ring-4 ring-slate-900 shadow-lg shadow-blue-500/30">
-                                <i data-lucide="mic" class="w-4 h-4"></i>
-                            </div>
-                            <span class="text-[10px] text-blue-400 font-bold">INTRO</span>
-                        </div>
-
-                        <!-- Step 3 -->
-                        <div class="flex flex-col items-center bg-slate-900 px-2">
-                            <div class="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-white mb-2 ring-4 ring-slate-900 shadow-lg shadow-yellow-500/30">
-                                <i data-lucide="trending-up" class="w-4 h-4"></i>
-                            </div>
-                            <span class="text-[10px] text-yellow-400 font-bold">BUILD-UP</span>
-                        </div>
-
-                        <!-- Step 4 -->
-                        <div class="flex flex-col items-center bg-slate-900 px-2">
-                            <div class="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white mb-2 ring-4 ring-slate-900 shadow-lg shadow-green-500/30">
-                                <i data-lucide="check-circle" class="w-4 h-4"></i>
-                            </div>
-                            <span class="text-[10px] text-green-400 font-bold">SOLUTION</span>
-                        </div>
-
-                        <!-- Step 5 -->
-                        <div class="flex flex-col items-center bg-slate-900 px-2">
-                            <div class="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white mb-2 ring-4 ring-slate-900 shadow-lg shadow-red-500/30">
-                                <i data-lucide="repeat" class="w-4 h-4"></i>
-                            </div>
-                            <span class="text-[10px] text-red-400 font-bold">LOOP</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 0-5s -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-slate-800 pb-6">
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2 text-purple-400 font-mono text-sm font-bold">
-                            <i data-lucide="clock" class="w-4 h-4"></i> 0-5s : Le Hook
-                        </div>
-                        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Visuel 🎥</span>
-                            <p class="text-slate-300 text-sm leading-relaxed">DESCRIPTION_VISUELLE_HOOK</p>
-                        </div>
-                    </div>
-                    <div class="flex flex-col justify-end">
-                         <div class="bg-slate-800 p-4 rounded-xl border-l-4 border-purple-500 relative overflow-hidden">
-                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Audio 🔊</span>
-                            <p class="text-white font-medium text-lg leading-relaxed">"${hook}"</p>
-                            <p class="text-pink-500 text-sm font-bold mt-2 italic flex items-center gap-2">
-                                🎵 SFX_DESCRIPTION
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 5-20s (Problème) - Repeat structure -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-slate-800 pb-6">
-                    <div class="space-y-2">
-                         <div class="flex items-center gap-2 text-purple-400 font-mono text-sm font-bold">
-                            <i data-lucide="clock" class="w-4 h-4"></i> 5-20s : L'Intro/Problème
-                        </div>
-                        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                             <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Visuel 🎥</span>
-                            <p class="text-slate-300 text-sm leading-relaxed">DESCRIPTION_VISUELLE_PROBLEME</p>
-                        </div>
-                    </div>
-                    <div class="flex flex-col justify-end">
-                         <div class="bg-slate-800 p-4 rounded-xl border-l-4 border-blue-500">
-                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Audio 🔊</span>
-                            <p class="text-white font-medium text-lg leading-relaxed">TEXTE_AUDIO_PROBLEME</p>
-                             <p class="text-yellow-400 text-sm font-bold mt-2 italic flex items-center gap-2">
-                                🎵 SFX_DESCRIPTION
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                 <!-- Section 20-45s (Solution) - Repeat structure -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-slate-800 pb-6">
-                    <div class="space-y-2">
-                         <div class="flex items-center gap-2 text-purple-400 font-mono text-sm font-bold">
-                            <i data-lucide="clock" class="w-4 h-4"></i> 20-45s : La Solution (Build-Up)
-                        </div>
-                        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                             <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Visuel 🎥</span>
-                            <p class="text-slate-300 text-sm leading-relaxed">DESCRIPTION_VISUELLE_SOLUTION</p>
-                        </div>
-                    </div>
-                    <div class="flex flex-col justify-end">
-                         <div class="bg-slate-800 p-4 rounded-xl border-l-4 border-green-500">
-                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Audio 🔊</span>
-                            <p class="text-white font-medium text-lg leading-relaxed">TEXTE_AUDIO_SOLUTION</p>
-                             <p class="text-pink-500 text-sm font-bold mt-2 italic flex items-center gap-2">
-                                🎵 SFX_DESCRIPTION
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 45-55s (CTA) - Repeat structure -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-slate-800 pb-6">
-                    <div class="space-y-2">
-                         <div class="flex items-center gap-2 text-purple-400 font-mono text-sm font-bold">
-                            <i data-lucide="clock" class="w-4 h-4"></i> 45-55s : CTA (Point Culminant)
-                        </div>
-                        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                             <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Visuel 🎥</span>
-                            <p class="text-slate-300 text-sm leading-relaxed">DESCRIPTION_VISUELLE_CTA</p>
-                        </div>
-                    </div>
-                    <div class="flex flex-col justify-end">
-                         <div class="bg-slate-800 p-4 rounded-xl border-l-4 border-pink-500">
-                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Audio 🔊</span>
-                            <p class="text-white font-medium text-lg leading-relaxed">TEXTE_AUDIO_CTA</p>
-                        </div>
-                    </div>
-                </div>
-
-                 <!-- Section 55-59s (Loop) - Repeat structure -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
-                    <div class="space-y-2">
-                         <div class="flex items-center gap-2 text-purple-400 font-mono text-sm font-bold">
-                            <i data-lucide="clock" class="w-4 h-4"></i> 55-59s : Le Loop (Appel à Action)
-                        </div>
-                        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                             <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Visuel 🎥</span>
-                            <p class="text-slate-300 text-sm leading-relaxed">DESCRIPTION_VISUELLE_LOOP</p>
-                        </div>
-                    </div>
-                    <div class="flex flex-col justify-end">
-                         <div class="bg-slate-800 p-4 rounded-xl border-l-4 border-purple-500">
-                            <span class="text-slate-500 text-xs font-bold tracking-wider uppercase mb-1 block">Audio 🔊</span>
-                            <p class="text-white font-medium text-lg leading-relaxed">TEXTE_AUDIO_LOOP (phrase de transition vers le début)</p>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-            `;
-
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`;
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
-                })
-            });
-
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error?.message || 'Erreur API Gemini');
-            }
-
-            const data = await response.json();
-            // Gemini might wrap HTML in ```html ... ```. We clean it.
-            let htmlText = data.candidates[0].content.parts[0].text;
-            htmlText = htmlText.replace(/```html/g, '').replace(/```/g, '').trim();
-            
-            return htmlText;
         }
 
         function copyScriptContent() {
