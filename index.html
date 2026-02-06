@@ -11,7 +11,7 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Markdown Parser (Marked) - Optional now but kept for fallback -->
+    <!-- Markdown Parser (Marked) -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <!-- Google Fonts -->
@@ -109,7 +109,7 @@
     <header class="py-8 px-4 text-center relative z-10">
         <div class="inline-flex items-center justify-center p-2 mb-4 bg-slate-800/50 rounded-full border border-slate-700/50 backdrop-blur-sm">
             <span class="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
-            <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Moteur IA v3.6 Timeline</span>
+            <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Moteur IA v3.7 GitHub Ready</span>
         </div>
         <h1 class="text-5xl md:text-6xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400">
             ViralHook Generator
@@ -286,6 +286,10 @@
         const GEMINI_API_KEY = "AIzaSyDtpYcmRpQ9dvqH4q8V3JgjSCijZYCGAvg"; 
         // --------------------------------------------------------------------
 
+        // Global variables to store hooks and topic
+        let currentGeneratedHooks = [];
+        let currentTopic = "";
+
         // Initialize Icons
         window.addEventListener('load', () => {
              if (typeof lucide !== 'undefined') {
@@ -376,6 +380,9 @@
             resultsArea.classList.add('hidden');
             loadingHooks.classList.remove('hidden');
             grid.innerHTML = '';
+            
+            // Store global topic
+            currentTopic = input;
 
             try {
                 // Try AI Generation First
@@ -383,7 +390,8 @@
                 
                 // If API returns valid array, render it
                 if (Array.isArray(generatedHooks) && generatedHooks.length > 0) {
-                    renderHooks(generatedHooks, input);
+                    currentGeneratedHooks = generatedHooks;
+                    renderHooks(currentGeneratedHooks, input);
                     countLabel.innerText = generatedHooks.length;
                 } else {
                     throw new Error("Format invalide");
@@ -392,6 +400,7 @@
                 console.warn("Erreur API Hooks (Fallback activé):", e);
                 // Fallback to local logic if API fails
                 const fallbackHooks = processTemplatesFallback(input);
+                currentGeneratedHooks = fallbackHooks;
                 renderHooks(fallbackHooks, input);
                 countLabel.innerText = fallbackHooks.length;
             } finally {
@@ -512,21 +521,15 @@
                     scoreColor = 'text-slate-200';
                 }
 
-                // AI hooks come as plain text, Fallback hooks might have HTML spans. 
-                // We'll trust the text content or simple formatting.
-                // For safety, let's treat AI text as plain but check if we can highlight the topic (simple check).
                 let displayText = hook.text;
                 
                 // If it doesn't look like HTML (no span), try to highlight topic if simple
                 if (!displayText.includes('<span') && topic) {
-                     // Very simple highlight if topic is found verbatim
                      const regex = new RegExp(`(${topic})`, 'gi');
                      displayText = displayText.replace(regex, "<span class='text-purple-400 font-semibold'>$1</span>");
                 }
 
-                const safeRawText = hook.rawText.replace(/'/g, "\\'");
-                const safeTopic = topic.replace(/'/g, "\\'");
-
+                // IMPORTANT: We use index instead of string interpolation to avoid syntax errors in HTML attributes
                 const cardHTML = `
                 <div class="relative group rounded-2xl p-6 ${bgClass} border ${borderClass} ${glowEffect} hover:transform hover:-translate-y-1 transition duration-300 flex flex-col justify-between">
                     ${tierBadge}
@@ -565,7 +568,7 @@
                         </div>
                     </div>
 
-                    <button onclick="openScriptModal('${safeRawText}', '${safeTopic}')" 
+                    <button onclick="openScriptModal(${index})" 
                         class="w-full py-3 bg-gradient-to-r from-purple-900 to-slate-900 hover:from-purple-800 hover:to-slate-800 border border-purple-500/30 text-white rounded-xl font-medium transition flex items-center justify-center gap-2 group-hover:border-purple-500 shadow-lg">
                         <i data-lucide="play-circle" class="w-5 h-5 text-purple-400"></i> Choisir ce hook
                     </button>
@@ -580,7 +583,14 @@
 
         let currentScriptText = "";
 
-        async function openScriptModal(hook, topic) {
+        async function openScriptModal(index) {
+            // Retrieve hook data from global array using index
+            const hookObj = currentGeneratedHooks[index];
+            if (!hookObj) return; // Safety check
+
+            const hook = hookObj.rawText;
+            const topic = document.getElementById('topicInput').value || currentTopic;
+
             const modal = document.getElementById('scriptModal');
             const content = document.getElementById('scriptContent');
             const loader = document.getElementById('scriptLoading');
